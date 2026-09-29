@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>五角形の面積</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Zen Maru Gothic', sans-serif;
+            background-color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            overscroll-behavior: none;
+        }
+
+        .btn-action {
+            transition: transform 0.15s ease-out, background-color 0.15s ease, box-shadow 0.15s ease;
+            touch-action: manipulation;
+        }
+        .btn-action:active {
+            transform: scale(0.94);
+        }
+
+        .draggable-text {
+            cursor: grab;
+            user-select: none;
+        }
+        .draggable-text:active {
+            cursor: grabbing;
+        }
+        .draggable-text rect {
+            fill: transparent;
+            stroke: transparent;
+            transition: fill 0.15s, stroke 0.15s;
+        }
+        .draggable-text:hover rect {
+            stroke: #3b82f6;
+            stroke-dasharray: 4,4;
+            fill: rgba(59, 130, 246, 0.08);
+        }
+
+        canvas, svg {
+            touch-action: none;
+            -webkit-touch-callout: none;
+            display: block;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden bg-slate-100 relative select-none touch-none">
+
+    <!-- 全画面共通コントロールツールバー -->
+    <header class="absolute top-3 left-3 right-3 z-30 flex items-center justify-between gap-2 bg-white/95 backdrop-blur-md p-2 px-4 rounded-2xl shadow-xl border border-slate-200 pointer-events-auto overflow-x-auto whitespace-nowrap touch-none">
+        <!-- 左側：基本ツール -->
+        <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-screenshot" title="スクリーンショット保存" class="h-9 px-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center justify-center btn-action shrink-0">
+                <i class="fa-solid fa-camera"></i>
+            </button>
+            <button id="btn-undo" class="h-9 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-1.5 btn-action shrink-0">
+                <i class="fa-solid fa-rotate-left"></i> 1つもどす
+            </button>
+            <button id="btn-reset" class="h-9 px-3 bg-slate-700 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-sm transition flex items-center gap-1.5 btn-action shrink-0">
+                <i class="fa-solid fa-power-off"></i> 初めから
+            </button>
+        </div>
+
+        <div class="h-5 w-px bg-slate-300 mx-1 shrink-0"></div>
+
+        <!-- 右側：モード切替 -->
+        <div class="flex items-center gap-2 shrink-0">
+            <button id="btn-mode-cut" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-blue-600 text-white shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-scissors"></i> 切る
+            </button>
+            <button id="btn-mode-text" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-keyboard"></i> PCで書く
+            </button>
+            <button id="btn-mode-pen" class="h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm btn-action shrink-0">
+                <i class="fa-solid fa-pen"></i> ペンで書く
+            </button>
+
+            <!-- ペンツールカラー＆消しゴム -->
+            <div id="pen-controls" class="flex items-center gap-1.5 ml-1 shrink-0">
+                <button id="pen-black" title="黒ペン" class="pen-btn w-7 h-7 rounded-full bg-slate-800 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ring-slate-800 scale-110"></button>
+                <button id="pen-red" title="赤ペン" class="pen-btn w-7 h-7 rounded-full bg-rose-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ring-transparent"></button>
+                <button id="pen-blue" title="青ペン" class="pen-btn w-7 h-7 rounded-full bg-blue-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ring-transparent"></button>
+                <button id="pen-green" title="緑ペン" class="pen-btn w-7 h-7 rounded-full bg-emerald-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ring-transparent"></button>
+                <button id="pen-eraser" title="消しゴム" class="h-8 px-2.5 bg-white hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition flex items-center gap-1 border border-slate-300 shrink-0">
+                    <i class="fa-solid fa-eraser"></i>
+                </button>
+                <button id="btn-clear-memo" title="メモを全消去" class="h-8 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs shadow-sm transition flex items-center gap-1 btn-action shrink-0">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 全画面メインエリア -->
+    <main id="capture-area" class="w-full h-full relative overflow-hidden bg-white touch-none">
+        <svg id="canvas-svg" class="w-full h-full absolute inset-0 touch-none select-none z-10" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet">
+            <g id="grid-layer"></g>
+            <g id="dashed-background-layer"></g>
+            <g id="pieces-layer"></g>
+            <g id="text-layer"></g>
+
+            <path id="user-cut-line" d="" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="6,4" stroke-linecap="round" fill="none" pointer-events="none" opacity="0.95" />
+            <circle id="cut-start-indicator" cx="-100" cy="-100" r="6" fill="#ef4444" stroke="#ffffff" stroke-width="2" pointer-events="none" opacity="0" />
+            <circle id="cut-end-indicator" cx="-100" cy="-100" r="6" fill="#ef4444" stroke="#ffffff" stroke-width="2" pointer-events="none" opacity="0" />
+        </svg>
+
+        <canvas id="memo-canvas" class="w-full h-full absolute inset-0 z-20 pointer-events-none cursor-crosshair touch-none"></canvas>
+        
+        <!-- キャンバス上の直接入力インラインエディタ -->
+        <textarea id="text-editor" class="absolute hidden z-30 bg-white/90 border-2 border-dashed border-blue-500 rounded-lg outline-none font-bold text-slate-900 shadow-lg p-0 transition-none resize-none overflow-hidden" style="font-family: 'Zen Maru Gothic', sans-serif; box-sizing: border-box;"></textarea>
+    </main>
+
+    <script>
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.closest('#capture-area') || e.target.closest('header')) {
+                if (e.cancelable) e.preventDefault();
+            }
+        }, { passive: false });
+
+        const svg = document.getElementById('canvas-svg');
+        const gridLayer = document.getElementById('grid-layer');
+        const dashedBgLayer = document.getElementById('dashed-background-layer');
+        const piecesLayer = document.getElementById('pieces-layer');
+        const textLayer = document.getElementById('text-layer');
+        const textEditor = document.getElementById('text-editor');
+        const userCutLine = document.getElementById('user-cut-line');
+        const cutStartIndicator = document.getElementById('cut-start-indicator');
+        const cutEndIndicator = document.getElementById('cut-end-indicator');
+        const memoCanvas = document.getElementById('memo-canvas');
+        const memoCtx = memoCanvas.getContext('2d');
+
+        const state = {
+            showGrid: true,
+            activeMode: 'cut',
+            pieces: [],
+            textElements: [],
+            editingTextId: null,
+            isDrawingCut: false,
+            cutStart: null,
+            cutCurrent: null,
+            penColor: '#1e293b',
+            penSize: 4,
+            isErasing: false,
+            isDrawingPen: false,
+            penLastPos: { x: 0, y: 0 }
+        };
+
+        const SCALE = 52; // 方眼1マス = 52px
+        const ORIGIN = { x: 420, y: 520 };
+        const FONT_SIZE = 36;
+        const LINE_HEIGHT = SCALE; // 改行幅を方眼1マス分(52px)と一致させる
+
+        const BASE_SHAPE = [
+            { name: 'E', x: -1, y: 6 },
+            { name: 'F', x: -4, y: 4 },
+            { name: 'G', x: -4, y: 1 },
+            { name: 'H', x: 0, y: 2 },
+            { name: 'I', x: 1, y: 4 }
+        ];
+
+        function resizeMemoCanvas() {
+            const rect = memoCanvas.getBoundingClientRect();
+            memoCanvas.width = rect.width;
+            memoCanvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeMemoCanvas);
+
+        function getSvgCoords(e) {
+            const pt = svg.createSVGPoint();
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            }
+            pt.x = clientX || 0;
+            pt.y = clientY || 0;
+            const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+            return { x: svgP.x, y: svgP.y };
+        }
+
+        function cmToSvg(pt) {
+            return {
+                x: ORIGIN.x + pt.x * SCALE,
+                y: ORIGIN.y - pt.y * SCALE
+            };
+        }
+
+        function svgToCm(pt) {
+            return {
+                x: (pt.x - ORIGIN.x) / SCALE,
+                y: (ORIGIN.y - pt.y) / SCALE
+            };
+        }
+
+        function snapToGridPoint(svgPt) {
+            const cmPt = svgToCm(svgPt);
+            const roundedCm = {
+                x: Math.round(cmPt.x),
+                y: Math.round(cmPt.y)
+            };
+            return cmToSvg(roundedCm);
+        }
+
+        function isPointInPolygon(pt, poly) {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                const intersect = ((yi > pt.y) !== (yj > pt.y))
+                    && (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function doLineSegmentsIntersect(p1, p2, p3, p4) {
+            function ccw(A, B, C) {
+                return (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
+            }
+            return (ccw(p1, p3, p4) !== ccw(p2, p3, p4)) && (ccw(p1, p2, p3) !== ccw(p1, p2, p4));
+        }
+
+        function isTextOverlappingPiece(item, piece) {
+            const poly = piece.vertices;
+            const lines = (item.text || '').split('\n');
+            let maxLen = 1;
+            lines.forEach(l => { if (l.length > maxLen) maxLen = l.length; });
+            const width = Math.max(SCALE * 2, maxLen * FONT_SIZE + 24);
+            const height = Math.max(SCALE, lines.length * LINE_HEIGHT);
+
+            const rectCorners = [
+                { x: item.x, y: item.y },
+                { x: item.x + width, y: item.y },
+                { x: item.x + width, y: item.y + height },
+                { x: item.x, y: item.y + height }
+            ];
+
+            for (const pt of rectCorners) {
+                if (isPointInPolygon(pt, poly)) return true;
+            }
+            for (const pt of poly) {
+                if (pt.x >= item.x && pt.x <= item.x + width && pt.y >= item.y && pt.y <= item.y + height) {
+                    return true;
+                }
+            }
+
+            const rectEdges = [
+                [rectCorners[0], rectCorners[1]],
+                [rectCorners[1], rectCorners[2]],
+                [rectCorners[2], rectCorners[3]],
+                [rectCorners[3], rectCorners[0]]
+            ];
+
+            for (let i = 0; i < poly.length; i++) {
+                const polyEdge = [poly[i], poly[(i + 1) % poly.length]];
+                for (const rectEdge of rectEdges) {
+                    if (doLineSegmentsIntersect(rectEdge[0], rectEdge[1], polyEdge[0], polyEdge[1])) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        function isTextOverlappingAnyPiece(item) {
+            return state.pieces.some(piece => isTextOverlappingPiece(item, piece));
+        }
+
+        let historyStack = [];
+
+        function saveHistory() {
+            if (historyStack.length > 20) historyStack.shift();
+            historyStack.push({
+                pieces: JSON.parse(JSON.stringify(state.pieces)),
+                textElements: JSON.parse(JSON.stringify(state.textElements))
+            });
+        }
+
+        function undoHistory() {
+            if (historyStack.length > 0) {
+                const last = historyStack.pop();
+                state.pieces = last.pieces;
+                state.textElements = last.textElements;
+                render();
+            }
+        }
+
+        function resetToInitialShape() {
+            finishTextEditing();
+            historyStack = [];
+            state.pieces = [{
+                id: 'piece-0',
+                vertices: BASE_SHAPE.map(pt => cmToSvg(pt)),
+                x: 0,
+                y: 0,
+                rotation: 0
+            }];
+            state.textElements = [];
+            memoCtx.clearRect(0, 0, memoCanvas.width, memoCanvas.height);
+            setMode('cut');
+            render();
+        }
+
+        function renderGrid() {
+            gridLayer.innerHTML = '';
+            if (!state.showGrid) return;
+
+            for (let x = -6; x <= 20; x++) {
+                const p1 = cmToSvg({ x: x, y: -4 });
+                const p2 = cmToSvg({ x: x, y: 12 });
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
+                line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
+                line.setAttribute('stroke', '#cbd5e1');
+                line.setAttribute('stroke-width', '0.9');
+                line.setAttribute('opacity', '0.85');
+                gridLayer.appendChild(line);
+            }
+
+            for (let y = -4; y <= 12; y++) {
+                const p1 = cmToSvg({ x: -6, y: y });
+                const p2 = cmToSvg({ x: 20, y: y });
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', p1.x); line.setAttribute('y1', p1.y);
+                line.setAttribute('x2', p2.x); line.setAttribute('y2', p2.y);
+                line.setAttribute('stroke', '#cbd5e1');
+                line.setAttribute('stroke-width', '0.9');
+                line.setAttribute('opacity', '0.85');
+                gridLayer.appendChild(line);
+            }
+        }
+
+        function renderDashedBackground() {
+            dashedBgLayer.innerHTML = '';
+            
+            const pts = BASE_SHAPE.map(pt => cmToSvg(pt));
+            const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            poly.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+            poly.setAttribute('fill', 'none');
+            poly.setAttribute('stroke', '#64748b');
+            poly.setAttribute('stroke-width', '2');
+            poly.setAttribute('stroke-dasharray', '6,6');
+            dashedBgLayer.appendChild(poly);
+
+            const labelOffsets = {
+                'E': { dx: -8, dy: -14 },
+                'F': { dx: -24, dy: 6 },
+                'G': { dx: -24, dy: 24 },
+                'H': { dx: 10, dy: 26 },
+                'I': { dx: 14, dy: 8 }
+            };
+
+            BASE_SHAPE.forEach(pt => {
+                const svgPt = cmToSvg(pt);
+                const offset = labelOffsets[pt.name] || { dx: 0, dy: 0 };
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', svgPt.x + offset.dx);
+                text.setAttribute('y', svgPt.y + offset.dy);
+                text.setAttribute('font-size', '24');
+                text.setAttribute('font-weight', '900');
+                text.setAttribute('fill', '#334155');
+                text.setAttribute('font-family', "'Zen Maru Gothic', sans-serif");
+                text.setAttribute('pointer-events', 'none');
+                text.textContent = pt.name;
+                dashedBgLayer.appendChild(text);
+            });
+        }
+
+        function renderTextLayer() {
+            textLayer.innerHTML = '';
+            state.textElements.forEach((item) => {
+                if (item.id === state.editingTextId) return;
+
+                const textGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                textGroup.setAttribute('class', 'draggable-text');
+                textGroup.setAttribute('data-id', item.id);
+
+                const lines = (item.text || '').split('\n');
+
+                let maxLen = 1;
+                lines.forEach(l => { if (l.length > maxLen) maxLen = l.length; });
+                const width = Math.max(SCALE, maxLen * FONT_SIZE + 12);
+                const height = Math.max(SCALE, lines.length * LINE_HEIGHT);
+
+                const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                bgRect.setAttribute('x', item.x);
+                bgRect.setAttribute('y', item.y);
+                bgRect.setAttribute('width', width);
+                bgRect.setAttribute('height', height);
+                bgRect.setAttribute('fill', 'transparent');
+                bgRect.setAttribute('stroke', 'transparent');
+                bgRect.setAttribute('pointer-events', 'all');
+                textGroup.appendChild(bgRect);
+
+                const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                textEl.setAttribute('x', item.x + 4);
+                // 各マスの高さ中央にベースラインを配置
+                textEl.setAttribute('y', item.y + (LINE_HEIGHT / 2) + (FONT_SIZE / 3));
+                textEl.setAttribute('font-size', FONT_SIZE);
+                textEl.setAttribute('font-weight', 'bold');
+                textEl.setAttribute('fill', '#0f172a');
+                textEl.setAttribute('font-family', "'Zen Maru Gothic', sans-serif");
+                textEl.setAttribute('pointer-events', 'none');
+
+                lines.forEach((lineStr, lineIdx) => {
+                    const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                    tspan.setAttribute('x', item.x + 4);
+                    if (lineIdx > 0) {
+                        tspan.setAttribute('dy', LINE_HEIGHT); // 改行間隔をマス目の高さ(52px)と一致させる
+                    }
+                    tspan.textContent = lineStr || ' ';
+                    textEl.appendChild(tspan);
+                });
+
+                textGroup.appendChild(textEl);
+
+                textGroup.addEventListener('pointerdown', (e) => {
+                    if (e.cancelable) e.preventDefault();
+                    if (e.stopPropagation) e.stopPropagation();
+
+                    const start = getSvgCoords(e);
+                    const initX = item.x;
+                    const initY = item.y;
+                    let isMoved = false;
+
+                    const onPointerMove = (moveEvt) => {
+                        const curr = getSvgCoords(moveEvt);
+                        const dx = curr.x - start.x;
+                        const dy = curr.y - start.y;
+
+                        if (Math.hypot(dx, dy) > 3) isMoved = true;
+
+                        if (isMoved) {
+                            item.x = initX + dx;
+                            item.y = initY + dy;
+
+                            bgRect.setAttribute('x', item.x);
+                            bgRect.setAttribute('y', item.y);
+                            textEl.setAttribute('x', item.x + 4);
+                            textEl.setAttribute('y', item.y + (LINE_HEIGHT / 2) + (FONT_SIZE / 3));
+                            textEl.querySelectorAll('tspan').forEach(ts => ts.setAttribute('x', item.x + 4));
+                        }
+                    };
+
+                    const onPointerUp = () => {
+                        window.removeEventListener('pointermove', onPointerMove);
+                        window.removeEventListener('pointerup', onPointerUp);
+
+                        if (!isMoved) {
+                            setMode('text');
+                            startTextEditing(item);
+                        } else {
+                            if (!isTextOverlappingAnyPiece(item)) {
+                                const snapped = snapToGridPoint({ x: item.x, y: item.y });
+                                item.x = snapped.x;
+                                item.y = snapped.y;
+                            }
+                            renderTextLayer();
+                            saveHistory();
+                        }
+                    };
+
+                    window.addEventListener('pointermove', onPointerMove);
+                    window.addEventListener('pointerup', onPointerUp);
+                });
+
+                textLayer.appendChild(textGroup);
+            });
+        }
+
+        function render() {
+            renderGrid();
+            renderDashedBackground();
+            renderTextLayer();
+            piecesLayer.innerHTML = '';
+
+            state.pieces.forEach((piece, pieceIdx) => {
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.setAttribute('id', `piece-group-${pieceIdx}`);
+
+                const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                poly.setAttribute('points', piece.vertices.map(p => `${p.x},${p.y}`).join(' '));
+                poly.setAttribute('fill', 'transparent');
+                poly.setAttribute('stroke', '#000000');
+                poly.setAttribute('stroke-width', '2.5');
+                poly.setAttribute('stroke-linejoin', 'round');
+                group.appendChild(poly);
+
+                piecesLayer.appendChild(group);
+            });
+        }
+
+        window.addEventListener('pointermove', (e) => {
+            if (state.activeMode === 'cut') {
+                handleMoveCut(e);
+            }
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (state.activeMode === 'cut') {
+                handleEndCut(e);
+            }
+        });
+
+        function cutPolygonByLine(polygonVertices, lineP1, lineP2) {
+            const A = lineP2.y - lineP1.y;
+            const B = lineP1.x - lineP2.x;
+            const C = lineP2.x * lineP1.y - lineP1.x * lineP2.y;
+
+            function getSide(pt) {
+                return A * pt.x + B * pt.y + C;
+            }
+
+            const poly1 = [];
+            const poly2 = [];
+            const n = polygonVertices.length;
+
+            for (let i = 0; i < n; i++) {
+                const current = polygonVertices[i];
+                const next = polygonVertices[(i + 1) % n];
+
+                const sideCurrent = getSide(current);
+                const sideNext = getSide(next);
+
+                if (sideCurrent >= 0) poly1.push(current);
+                if (sideCurrent <= 0) poly2.push(current);
+
+                if ((sideCurrent > 0 && sideNext < 0) || (sideCurrent < 0 && sideNext > 0)) {
+                    const t = sideCurrent / (sideCurrent - sideNext);
+                    const intersectPt = {
+                        x: current.x + t * (next.x - current.x),
+                        y: current.y + t * (next.y - current.y)
+                    };
+                    poly1.push(intersectPt);
+                    poly2.push(intersectPt);
+                }
+            }
+
+            if (poly1.length >= 3 && poly2.length >= 3) {
+                return [poly1, poly2];
+            }
+            return null;
+        }
+
+        function processCut(cutStart, cutEnd) {
+            let cutHappened = false;
+            const newPieces = [];
+
+            state.pieces.forEach((piece) => {
+                const result = cutPolygonByLine(piece.vertices, cutStart, cutEnd);
+                if (result && !cutHappened) {
+                    saveHistory();
+                    cutHappened = true;
+                    result.forEach((polyVerts, idx) => {
+                        newPieces.push({
+                            id: `piece-${Date.now()}-${idx}`,
+                            vertices: polyVerts,
+                            x: 0,
+                            y: 0,
+                            rotation: 0
+                        });
+                    });
+                } else {
+                    newPieces.push(piece);
+                }
+            });
+
+            if (cutHappened) {
+                state.pieces = newPieces;
+                render();
+            }
+        }
+
+        const handleStartCut = (e) => {
+            if (state.activeMode === 'cut') {
+                if (e.cancelable) e.preventDefault();
+                const coords = getSvgCoords(e);
+                const snapped = snapToGridPoint(coords);
+                state.isDrawingCut = true;
+                state.cutStart = snapped;
+                state.cutCurrent = snapped;
+
+                cutStartIndicator.setAttribute('cx', snapped.x);
+                cutStartIndicator.setAttribute('cy', snapped.y);
+                cutStartIndicator.setAttribute('opacity', '1');
+
+                cutEndIndicator.setAttribute('cx', snapped.x);
+                cutEndIndicator.setAttribute('cy', snapped.y);
+                cutEndIndicator.setAttribute('opacity', '1');
+
+                userCutLine.setAttribute('d', `M ${snapped.x} ${snapped.y} L ${snapped.x} ${snapped.y}`);
+            }
+        };
+
+        const handleMoveCut = (e) => {
+            if (state.activeMode === 'cut' && state.isDrawingCut) {
+                if (e.cancelable) e.preventDefault();
+                const coords = getSvgCoords(e);
+                const snapped = snapToGridPoint(coords);
+                state.cutCurrent = snapped;
+
+                cutEndIndicator.setAttribute('cx', snapped.x);
+                cutEndIndicator.setAttribute('cy', snapped.y);
+
+                userCutLine.setAttribute('d', `M ${state.cutStart.x} ${state.cutStart.y} L ${snapped.x} ${snapped.y}`);
+            }
+        };
+
+        const handleEndCut = (e) => {
+            if (state.activeMode === 'cut' && state.isDrawingCut) {
+                state.isDrawingCut = false;
+                cutStartIndicator.setAttribute('opacity', '0');
+                cutEndIndicator.setAttribute('opacity', '0');
+                userCutLine.setAttribute('d', '');
+
+                if (state.cutStart && state.cutCurrent) {
+                    const dist = Math.hypot(state.cutCurrent.x - state.cutStart.x, state.cutCurrent.y - state.cutStart.y);
+                    if (dist > 10) {
+                        processCut(state.cutStart, state.cutCurrent);
+                    }
+                }
+                state.cutStart = null;
+                state.cutCurrent = null;
+            }
+        };
+
+        function updateEditorSize() {
+            const rect = svg.getBoundingClientRect();
+            const scaleX = rect.width / 1280;
+            const scaleY = rect.height / 720;
+
+            const lines = textEditor.value.split('\n');
+            let maxLen = 1;
+            lines.forEach(l => { if (l.length > maxLen) maxLen = l.length; });
+
+            const calcWidth = Math.max(SCALE, maxLen * FONT_SIZE + 12);
+            const calcHeight = Math.max(SCALE, lines.length * LINE_HEIGHT);
+
+            textEditor.style.width = `${calcWidth * scaleX}px`;
+            textEditor.style.height = `${calcHeight * scaleY}px`;
+            textEditor.style.fontSize = `${FONT_SIZE * scaleY}px`;
+            textEditor.style.lineHeight = `${LINE_HEIGHT * scaleY}px`;
+        }
+
+        function startTextEditing(item) {
+            state.editingTextId = item.id;
+            renderTextLayer();
+
+            const rect = svg.getBoundingClientRect();
+            const scaleX = rect.width / 1280;
+            const scaleY = rect.height / 720;
+
+            textEditor.style.left = `${rect.left + item.x * scaleX}px`;
+            textEditor.style.top = `${rect.top + item.y * scaleY}px`;
+            textEditor.value = item.text || '';
+            
+            updateEditorSize();
+
+            textEditor.classList.remove('hidden');
+            setTimeout(() => textEditor.focus(), 10);
+        }
+
+        function finishTextEditing() {
+            if (!state.editingTextId) return;
+            const item = state.textElements.find(t => t.id === state.editingTextId);
+            if (item) {
+                const val = textEditor.value;
+                if (val && val.trim().length > 0) {
+                    item.text = val;
+                } else {
+                    state.textElements = state.textElements.filter(t => t.id !== state.editingTextId);
+                }
+                saveHistory();
+            }
+            state.editingTextId = null;
+            textEditor.classList.add('hidden');
+            renderTextLayer();
+        }
+
+        textEditor.addEventListener('input', updateEditorSize);
+        textEditor.addEventListener('blur', finishTextEditing);
+        textEditor.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                finishTextEditing();
+            }
+        });
+
+        function getCanvasCoords(e) {
+            const rect = memoCanvas.getBoundingClientRect();
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else if (e.changedTouches && e.changedTouches.length > 0) {
+                clientX = e.changedTouches[0].clientX;
+                clientY = e.changedTouches[0].clientY;
+            }
+            return {
+                x: (clientX - rect.left),
+                y: (clientY - rect.top)
+            };
+        }
+
+        function handlePenStart(e) {
+            if (state.activeMode !== 'pen') return;
+            if (e.cancelable) e.preventDefault();
+            state.isDrawingPen = true;
+            const pos = getCanvasCoords(e);
+            state.penLastPos = pos;
+
+            memoCtx.beginPath();
+            memoCtx.arc(pos.x, pos.y, (state.isErasing ? 12 : state.penSize) / 2, 0, Math.PI * 2);
+            memoCtx.fillStyle = state.isErasing ? 'rgba(0,0,0,1)' : state.penColor;
+            
+            if (state.isErasing) {
+                memoCtx.globalCompositeOperation = 'destination-out';
+            } else {
+                memoCtx.globalCompositeOperation = 'source-over';
+            }
+            memoCtx.fill();
+        }
+
+        function handlePenMove(e) {
+            if (state.activeMode !== 'pen' || !state.isDrawingPen) return;
+            if (e.cancelable) e.preventDefault();
+            const pos = getCanvasCoords(e);
+
+            memoCtx.beginPath();
+            memoCtx.moveTo(state.penLastPos.x, state.penLastPos.y);
+            memoCtx.lineTo(pos.x, pos.y);
+            
+            if (state.isErasing) {
+                memoCtx.globalCompositeOperation = 'destination-out';
+                memoCtx.lineWidth = 24;
+            } else {
+                memoCtx.globalCompositeOperation = 'source-over';
+                memoCtx.strokeStyle = state.penColor;
+                memoCtx.lineWidth = state.penSize;
+                memoCtx.lineCap = 'round';
+                memoCtx.lineJoin = 'round';
+            }
+            memoCtx.stroke();
+            state.penLastPos = pos;
+        }
+
+        function handlePenEnd() {
+            state.isDrawingPen = false;
+        }
+
+        svg.addEventListener('pointerdown', (e) => {
+            if (state.activeMode === 'cut') {
+                handleStartCut(e);
+            } else if (state.activeMode === 'text') {
+                if (e.target.closest('.draggable-text') || e.target.closest('#text-editor')) return;
+                finishTextEditing();
+                
+                const svgPt = getSvgCoords(e);
+                const snapped = snapToGridPoint(svgPt);
+                const newText = {
+                    id: `text-${Date.now()}`,
+                    x: snapped.x,
+                    y: snapped.y,
+                    text: ''
+                };
+                state.textElements.push(newText);
+                startTextEditing(newText);
+            }
+        });
+
+        memoCanvas.addEventListener('pointerdown', handlePenStart);
+        memoCanvas.addEventListener('pointermove', handlePenMove);
+        memoCanvas.addEventListener('pointerup', handlePenEnd);
+        memoCanvas.addEventListener('pointercancel', handlePenEnd);
+
+        // --- モード制御 ---
+        const btnModeCut = document.getElementById('btn-mode-cut');
+        const btnModeText = document.getElementById('btn-mode-text');
+        const btnModePen = document.getElementById('btn-mode-pen');
+
+        function setMode(mode) {
+            finishTextEditing();
+            state.activeMode = mode;
+
+            const activeClass = 'bg-blue-600 text-white shadow-sm';
+            const inactiveClass = 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 shadow-sm';
+
+            btnModeCut.className = `h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 btn-action shrink-0 ${mode === 'cut' ? activeClass : inactiveClass}`;
+            btnModeText.className = `h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 btn-action shrink-0 ${mode === 'text' ? activeClass : inactiveClass}`;
+            btnModePen.className = `h-9 px-3 rounded-xl font-bold text-sm transition flex items-center gap-1.5 btn-action shrink-0 ${mode === 'pen' ? activeClass : inactiveClass}`;
+
+            if (mode === 'pen') {
+                memoCanvas.classList.remove('pointer-events-none');
+            } else {
+                memoCanvas.classList.add('pointer-events-none');
+            }
+
+            render();
+        }
+
+        btnModeCut.addEventListener('click', () => setMode('cut'));
+        btnModeText.addEventListener('click', () => setMode('text'));
+        btnModePen.addEventListener('click', () => setMode('pen'));
+
+        const penBtns = {
+            black: document.getElementById('pen-black'),
+            red: document.getElementById('pen-red'),
+            blue: document.getElementById('pen-blue'),
+            green: document.getElementById('pen-green'),
+            eraser: document.getElementById('pen-eraser')
+        };
+
+        function selectPenColor(color, isEraser = false) {
+            state.isErasing = isEraser;
+            if (!isEraser) state.penColor = color;
+
+            setMode('pen');
+
+            penBtns.black.className = `pen-btn w-7 h-7 rounded-full bg-slate-800 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ${!isEraser && color === '#1e293b' ? 'ring-slate-800 scale-110' : 'ring-transparent'}`;
+            penBtns.red.className = `pen-btn w-7 h-7 rounded-full bg-rose-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ${!isEraser && color === '#ef4444' ? 'ring-rose-500 scale-110' : 'ring-transparent'}`;
+            penBtns.blue.className = `pen-btn w-7 h-7 rounded-full bg-blue-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ${!isEraser && color === '#3b82f6' ? 'ring-blue-500 scale-110' : 'ring-transparent'}`;
+            penBtns.green.className = `pen-btn w-7 h-7 rounded-full bg-emerald-500 hover:scale-105 transition shrink-0 border-2 border-white ring-2 ${!isEraser && color === '#10b981' ? 'ring-emerald-500 scale-110' : 'ring-transparent'}`;
+            penBtns.eraser.className = `h-8 px-2.5 rounded-xl font-bold text-xs transition flex items-center gap-1 border border-slate-300 shrink-0 ${isEraser ? 'bg-amber-100 text-amber-800 border-amber-400 scale-105' : 'bg-white hover:bg-slate-200 text-slate-700'}`;
+        }
+
+        penBtns.black.addEventListener('click', () => selectPenColor('#1e293b', false));
+        penBtns.red.addEventListener('click', () => selectPenColor('#ef4444', false));
+        penBtns.blue.addEventListener('click', () => selectPenColor('#3b82f6', false));
+        penBtns.green.addEventListener('click', () => selectPenColor('#10b981', false));
+        penBtns.eraser.addEventListener('click', () => selectPenColor(state.penColor, true));
+
+        document.getElementById('btn-clear-memo').addEventListener('click', () => {
+            memoCtx.clearRect(0, 0, memoCanvas.width, memoCanvas.height);
+        });
+
+        document.getElementById('btn-undo').addEventListener('click', undoHistory);
+        document.getElementById('btn-reset').addEventListener('click', resetToInitialShape);
+
+        document.getElementById('btn-screenshot').addEventListener('click', () => {
+            finishTextEditing();
+            const captureArea = document.getElementById('capture-area');
+            html2canvas(captureArea, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `五角形の面積_${new Date().toISOString().slice(0,10)}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        });
+
+        window.addEventListener('load', () => {
+            resizeMemoCanvas();
+            resetToInitialShape();
+        });
+    </script>
+</body>
+</html>
